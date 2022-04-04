@@ -1,0 +1,111 @@
+% Tehtävissä tarvittava data:
+# http://users.jyu.fi/~eman/datalista_files/return.RData
+# http://users.jyu.fi/~eman/datalista_files/volat.RData
+# http://users.jyu.fi/~eman/datalista_files/nyse.RData
+
+# Huhtikuu 2022
+library(dynlm);library(stargazer)
+# Ensimmäinen tehtävä , a)
+# data return.dta tai return.RData
+data(return, package='wooldridge')
+tsdata <- ts(return)
+malli1 <- dynlm(return~ dkr+eps+netinc+salary , data=tsdata) 
+# "return" =  Osakkeiden neljän vuoden keskimääräinen kokonaistuotto (1990-1994)
+# "dkr"= yhtiön velkojen suhde omaan pääomaan ;"eps"= E/P ; "netinc"= nettotulo ; "salary"=johdon kompensaatiotaso. 
+stargazer(malli1, type="text", keep.stat=c("n","rsq","adj.rsq","f"))
+# b)
+malli2 <- dynlm(return~ dkr+eps+log(netinc)+log(salary) , data=tsdata) 
+stargazer(malli2, type="text")
+#
+# Toinen tehtävä, 
+library(dynlm);library(stargazer)
+data(volat, package='wooldridge')
+vola1 <- ts(volat)
+malli3 <- dynlm(rsp500~ pcip+i3 , data=vola1)
+stargazer(malli3, type="text")
+# vain i3 on significant. Negatiivinen kuten oletettu
+#
+# Kolmas tehtävä
+library(dynlm);library(stargazer)
+data(volat, package='wooldridge')
+vola1 <- ts(volat)
+malli4 <- dynlm(pcip ~ pcip_1 + pcip_2 + pcip_3 + pcsp_1 , data=vola1) 
+stargazer(malli4, type="text")
+
+# Neljäs tehtävä
+# Dickey-Fuller, log, co-integration , mjat "sp500" ja "ip"
+library(dynlm);library(stargazer)
+library(tseries)
+data(volat, package='wooldridge')
+vola1 <- ts(volat)
+sp5 <- volat$sp500
+ipp <- volat$ip
+adf.test(log(sp5), k=4)
+adf.test(diff(log(sp5)) , k=4)
+adf.test(log(ipp), k=4)
+adf.test(diff(log(ipp)), k=4)
+##
+# c) Cointegration testi
+library(urca)
+jotest <- ca.jo(data.frame(sp5,ipp), type="trace", K=2, ecdet="none", spec="longrun")
+summary(jotest)
+# ei yhteisintegraatiota, ei long term tasapainorelaatiota
+#
+# tehtävä viisi
+# tehokkaat markkinat, s. 198 Florian Heiss, Example 11-4.R
+library(dynlm);library(stargazer)
+data(nyse, package='wooldridge')
+# Define time series (numbered 1,...,n)
+tsdata <- ts(nyse)
+
+# Linear regression of models with lags:
+reg1 <- dynlm(return~L(return)                        , data=tsdata) 
+reg2 <- dynlm(return~L(return)+L(return,2)            , data=tsdata) 
+reg3 <- dynlm(return~L(return)+L(return,2)+L(return,3), data=tsdata) 
+
+# Pretty regression table
+stargazer(reg1, reg2, reg3, type="text", keep.stat=c("n","rsq","adj.rsq","f"))
+# Mikään AR termi ei ole signific, eli EMH ei voi hylätä!
+#
+# Tehtävä kuusi
+library(dynlm);library(lmtest)
+data(nyse, package='wooldridge')
+
+tsdata <- ts(nyse)
+
+# Linear regression of model:
+reg <- dynlm(return ~ L(return), data=tsdata) 
+bptest(reg)
+# selvää heteroskedastisuutta
+# squared residual
+residual.sq <- resid(reg)^2
+
+# Model for squared residual:
+ARCHreg <- dynlm(residual.sq ~ L(residual.sq)) 
+coeftest(ARCHreg)
+# ARCH malli sopii mainiosti, joten osakesarjassa 
+# selvää heteroskedastisuutta
+#
+# lisämateriaalia, demoa tätä
+#
+library(zoo);library(quantmod);library(dynlm);library(stargazer)
+
+# Download data using the quantmod package:
+getSymbols("AAPL", auto.assign = TRUE)
+
+# Calculate return as the log difference
+ret <- diff( log(AAPL$AAPL.Adjusted) )
+# Subset 2008-2020 by special xts indexing:
+ret <- ret["2008/2020"]
+
+# AR(1) model for returns
+ret <- as.zoo(ret)
+reg <- dynlm( ret ~ L(ret) ) 
+summary(reg)
+# squared residual
+residual.sq <- resid(reg)^2
+
+# Model for squared residual:
+ARCHreg <- dynlm(residual.sq ~ L(residual.sq)) 
+summary(ARCHreg)
+# ARCH malli sopii mainiosti, eli heteroskedastisuutta oli reilusti
